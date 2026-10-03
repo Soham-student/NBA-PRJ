@@ -431,7 +431,12 @@ def create_excel_report(output_path: str | Path, source_excel: str | Path | None
 
 
 if __name__ == "__main__":
-    project_root = Path(__file__).resolve().parent.parent
+    script_dir = Path(__file__).resolve().parent
+    if script_dir.name == "pipeline":
+        project_root = script_dir.parent / "project_bundle"
+    else:
+        project_root = script_dir
+
     input_dir = project_root / "input_sheets"
     output_dir = project_root / "output_sheets"
     output_dir.mkdir(exist_ok=True)
