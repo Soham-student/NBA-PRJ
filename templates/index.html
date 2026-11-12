@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block body %}
+{% if errors %}
+<section class="errors" role="alert">
+  <strong>Fix these and submit again:</strong>
+  <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<form method="post" action="{{ url_for('run') }}" enctype="multipart/form-data">
+<section>
+  <h2>Course</h2>
+  <div class="grid">
+    <div><label for="course_name">Course name</label><input type="text" id="course_name" name="course_name" value="{{ v.course_name }}" required></div>
+    <div><label for="course_code">Course code</label><input type="text" id="course_code" name="course_code" value="{{ v.course_code }}"></div>
+    <div><label for="class_name">Class</label><input type="text" id="class_name" name="class_name" value="{{ v.class_name }}"></div>
+    <div><label for="semester">Semester</label><input type="text" id="semester" name="semester" value="{{ v.semester }}"></div>
+  </div>
+</section>
+
+<section>
+  <h2>Final CO → PO/PSO mapping (Table 7)</h2>
+  <p class="hint">0 = not mapped, 1 = low, 2 = medium, 3 = high.</p>
+  <div class="scroll"><table>
+    <tr><th>CO</th>{% for po in POS %}<th>{{ po }}</th>{% endfor %}</tr>
+    {% for co in COS %}<tr><th>{{ co }}</th>
+      {% for po in POS %}{% set n = 'map_' ~ co ~ '_' ~ po %}
+      <td><input type="number" name="{{ n }}" value="{{ v[n] }}" min="0" max="3" step="1" required aria-label="{{ co }} {{ po }}" style="width:48px"></td>
+      {% endfor %}</tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section>
+  <h2>Assessment tools per CO</h2>
+  <p class="hint">Each cell: <b>max marks</b> / <b>% weight</b> of that tool in the CO. Weights for a CO must add up to 100. A tool with weight 0 is ignored.</p>
+  <div class="scroll"><table>
+    <tr><th>CO</th>{% for t in TOOLS %}<th>{{ t }}<br><small>max / weight %</small></th>{% endfor %}</tr>
+    {% for co in COS %}<tr><th>{{ co }}</th>
+      {% for t in TOOLS %}{% set m = 'max_' ~ co ~ '_' ~ t %}{% set w = 'w_' ~ co ~ '_' ~ t %}
+      <td><div class="pair">
+        <input type="number" name="{{ m }}" value="{{ v[m] }}" min="0" step="any" required aria-label="{{ co }} {{ t }} max marks">
+        <input type="number" name="{{ w }}" value="{{ v[w] }}" min="0" max="100" step="any" required aria-label="{{ co }} {{ t }} weight percent">
+      </div></td>
+      {% endfor %}</tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section>
+  <h2>Targets and indirect attainment (Table A / B)</h2>
+  <div class="scroll"><table>
+    <tr><th>CO</th><th>Target attainment %</th><th>Indirect attainment %<br><small>students saying YES in survey</small></th><th>IA CO level (0-3)</th></tr>
+    {% for co in COS %}<tr><th>{{ co }}</th>
+      {% for key, mx in [('target', 100), ('indirect', 100), ('ia_level', 3)] %}{% set n = key ~ '_' ~ co %}
+      <td><input type="number" name="{{ n }}" value="{{ v[n] }}" min="0" max="{{ mx }}" step="any" required aria-label="{{ co }} {{ key }}" style="width:80px"></td>
+      {% endfor %}</tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section>
+  <h2>Rules</h2>
+  <div class="grid">
+    <div><label for="level3">Level 3 if total attainment ≥ (%)</label><input type="number" id="level3" name="level3" value="{{ v.level3 }}" min="0" max="100" step="any" required></div>
+    <div><label for="level2">Level 2 if ≥ (%)</label><input type="number" id="level2" name="level2" value="{{ v.level2 }}" min="0" max="100" step="any" required></div>
+    <div><label for="level1">Level 1 if ≥ (%)</label><input type="number" id="level1" name="level1" value="{{ v.level1 }}" min="0" max="100" step="any" required></div>
+    <div><label for="internal_pct">Internal assessment share (%) — end term gets the rest</label><input type="number" id="internal_pct" name="internal_pct" value="{{ v.internal_pct }}" min="0" max="100" step="any" required></div>
+    <div><label for="direct_pct">Direct attainment share (%) — indirect gets the rest</label><input type="number" id="direct_pct" name="direct_pct" value="{{ v.direct_pct }}" min="0" max="100" step="any" required></div>
+    <div><label for="end_max">End term max marks</label><input type="number" id="end_max" name="end_max" value="{{ v.end_max }}" min="1" step="any" required></div>
+  </div>
+</section>
+
+<section>
+  <h2>Student marks</h2>
+  <p class="hint">Upload the original course workbook (the one with <i>Tab 3 Attainment calculation</i>) or a filled
+    <a href="{{ url_for('template') }}">student marks template</a>.
+    {% if default_exists %}Leave empty to use <code>input_sheets/input_sheet.xlsx</code>.{% endif %}</p>
+  <input type="file" name="students" accept=".xlsx" aria-label="Student marks file">
+</section>
+
+<div class="actions"><button type="submit">Calculate &amp; save</button><a class="btn secondary" href="{{ url_for('index') }}">Reset to defaults</a></div>
+</form>
+
+<section style="margin-top:24px">
+  <h2>Saved runs</h2>
+  {% if runs %}
+  <div class="scroll"><table>
+    <tr><th>#</th><th class="l">Date</th><th class="l">Course</th><th>Students</th><th>Avg CO attainment</th><th></th></tr>
+    {% for r in runs %}<tr>
+      <td>{{ r.id }}</td><td class="l">{{ r.created_at.replace('T', ' ') }}</td>
+      <td class="l">{{ r.course_name }}{% if r.course_code %} ({{ r.course_code }}){% endif %}</td>
+      <td>{{ r.student_count }}</td><td>{{ r.avg_co_attainment|fmt }}</td>
+      <td class="actions"><a href="{{ url_for('result', run_id=r.id) }}">View</a>
+        <a href="{{ url_for('download', run_id=r.id) }}">Excel</a>
+        <form method="post" action="{{ url_for('delete', run_id=r.id) }}" onsubmit="return confirm('Delete run #{{ r.id }}?')"><button class="link" type="submit">Delete</button></form></td>
+    </tr>{% endfor %}
+  </table></div>
+  {% else %}<p class="hint">No runs yet.</p>{% endif %}
+</section>
+{% endblock %}

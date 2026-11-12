@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ run.course_name }} · Run {{ run.id }}{% endblock %}
+{% block body %}
+<section>
+  <h2>{{ run.course_name }}{% if run.course_code %} ({{ run.course_code }}){% endif %}</h2>
+  <p class="hint">{{ cfg.class_name }} · Semester {{ cfg.semester }} · Run #{{ run.id }} · {{ run.created_at.replace('T', ' ') }}</p>
+  <div class="stats">
+    <div class="stat"><b>{{ run.avg_co_attainment|fmt }}</b><span>Average CO attainment (of 3)</span></div>
+    <div class="stat"><b>{{ run.student_count }}</b><span>Students</span></div>
+    <div class="stat"><b>{{ cos|selectattr('status', 'equalto', 'Attained')|list|length }} / {{ cos|length }}</b><span>COs attained</span></div>
+  </div>
+  <p class="actions" style="margin-top:14px"><a class="btn" href="{{ url_for('download', run_id=run.id) }}">Download Excel</a>
+    <a class="btn secondary" href="{{ url_for('index') }}">New calculation</a></p>
+</section>
+
+<section>
+  <h2>Table B — CO attainment (direct) gap analysis</h2>
+  <div class="scroll"><table>
+    <tr><th>CO</th><th>Target %</th><th>% Direct</th><th>% Indirect</th><th>Total actual %</th><th>CO level</th><th>IA CO level</th><th>Final CO attainment</th><th>Status</th></tr>
+    {% for c in cos %}<tr><th>{{ c.co }}</th><td>{{ c.target|fmt }}</td><td>{{ c.direct|fmt }}</td><td>{{ c.indirect|fmt }}</td>
+      <td>{{ c.total|fmt }}</td><td>{{ c.level }}</td><td>{{ c.ia_level|fmt }}</td><td>{{ c.final|fmt }}</td>
+      <td class="{{ 'ok' if c.status == 'Attained' else 'bad' }}">{{ c.status }}</td></tr>{% endfor %}
+    <tr class="hl"><td class="l" colspan="7">Average CO attainment</td><td>{{ run.avg_co_attainment|fmt }}</td><td></td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>Table F — PO/PSO attainment</h2>
+  <div class="scroll"><table>
+    <tr><th>CO</th>{% for po in POS %}<th>{{ po }}</th>{% endfor %}</tr>
+    {% for co in COS %}<tr><th>{{ co }}</th>{% for x in cfg.mapping[co] %}<td>{{ x }}</td>{% endfor %}</tr>{% endfor %}
+    <tr class="hl"><td class="l">Target attainment</td>{% for p in pos %}<td>{{ p.target|fmt }}</td>{% endfor %}</tr>
+    <tr class="hl2"><td class="l">Actual attainment</td>{% for p in pos %}<td>{{ p.actual|fmt }}</td>{% endfor %}</tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>Student-wise CO scores ({{ students|length }})</h2>
+  <p class="hint">Internal = tool marks scaled by weight (out of 100). Total = {{ cfg.internal_pct|fmt }}% internal + {{ (100 - cfg.internal_pct)|fmt }}% end term (scaled to 100).</p>
+  <div class="scroll" style="max-height:560px; overflow-y:auto"><table>
+    <tr><th rowspan="2">Sr</th><th rowspan="2" class="l">Name</th><th colspan="5">Internal</th><th colspan="2">End term</th><th colspan="5">Total</th></tr>
+    <tr>{% for co in COS %}<th>{{ co }}</th>{% endfor %}<th>/{{ cfg.end_max|fmt }}</th><th>/100</th>{% for co in COS %}<th>{{ co }}</th>{% endfor %}</tr>
+    {% for s in students %}<tr><td>{{ s.sr }}</td><td class="l">{{ s.name }}</td>
+      {% for co in COS %}<td>{{ s[co|lower ~ '_internal']|fmt }}</td>{% endfor %}
+      <td>{{ s.end_term|fmt }}</td><td>{{ s.end_term_100|fmt }}</td>
+      {% for co in COS %}<td>{{ s[co|lower ~ '_total']|fmt }}</td>{% endfor %}</tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}
